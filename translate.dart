@@ -2,24 +2,20 @@ import 'dart:io';
 import 'dart:collection' show SplayTreeSet;
 import 'package:path/path.dart' as p;
 import 'package:sass/sass.dart' as sass;
-import 'files.dart' as files;
+import 'settings.dart' as settings;
+
+Future<void> run_modules(String state,
+    [Map<Symbol, dynamic>? arguments]) async {
+  await Future.forEach(settings.modules, (Map<String, Function> module) async {
+    await Function.apply(module[state] ?? () {}, [], arguments);
+  });
+}
 
 Future<void> compile_sass() async {
-  await (await files.highlight_scss.create(recursive: true)).writeAsString(
-      (await Process.run('highlight', [
-    '--stdout',
-    '--print-style',
-    '--config-file',
-    files.highlight_theme.path
-  ]))
-          .stdout
-          .toString()
-          .replaceAll(RegExp(r'background-color' + r'[^;]*' + r';'), '')
-          .replaceAll(RegExp(r'font-size' + r'[^;]*' + r';'), '')
-          .replaceAll(RegExp(r'font-family' + r'[^;]*' + r';'), '')
-          .replaceAll(RegExp(r'[^{;]*' + r'#654321' + r'[^;]*' + r';'), ''));
-  (await files.main_css.create(recursive: true)).writeAsString(sass
-      .compileToResult(files.main_scss.path, style: sass.OutputStyle.compressed)
+  await run_modules(settings.before_compiling_sass);
+  await (await settings.main_css.create(recursive: true)).writeAsString(sass
+      .compileToResult(settings.main_scss.path,
+          style: sass.OutputStyle.compressed)
       .css);
 }
 
@@ -61,10 +57,10 @@ class HtmlFile {
   String id;
   HtmlFile(this.id) {
     id = esc(id, inline: true);
-    Directory dir = Directory(p.join(files.articles.path, id));
+    Directory dir = Directory(p.join(settings.articles.path, id));
     try {
       directory =
-          File(p.join(dir.path, files.html_directory)).readAsStringSync();
+          File(p.join(dir.path, settings.html_directory)).readAsStringSync();
     } finally {
       directory = p.normalize(esc(directory, inline: true));
       if (directory.startsWith('/')) {
@@ -73,15 +69,15 @@ class HtmlFile {
     }
     try {
       description =
-          File(p.join(dir.path, files.html_description)).readAsStringSync();
+          File(p.join(dir.path, settings.html_description)).readAsStringSync();
     } finally {
       description = esc(description, inline: true);
     }
     try {
-      File main_md = File(p.join(dir.path, files.html_main));
+      File main_md = File(p.join(dir.path, settings.html_main));
       md = main_md.readAsStringSync();
       int unix_time = int.parse(Process.runSync(
-          files.lastmod_out.absolute.path, [main_md.absolute.path]).stdout);
+          settings.lastmod_out.absolute.path, [main_md.absolute.path]).stdout);
       lastmod = DateTime.fromMillisecondsSinceEpoch(unix_time * 1000);
     } finally {}
   }
@@ -98,7 +94,7 @@ String esc(String str, {bool inline = false}) {
 Future<void> main() async {
   compile_sass();
   HtmlDir site_map = HtmlDir('');
-  await for (FileSystemEntity entity in files.articles.list()) {
+  await for (FileSystemEntity entity in settings.articles.list()) {
     if (entity is Directory) {
       site_map.add_file(HtmlFile(p.basename(entity.path)));
     }
