@@ -18,6 +18,9 @@ final String html_directory = "directory.txt";
 final Directory document_root = Directory('html/').absolute;
 final File main_css = File(p.join(document_root.path, 'main.css')).absolute;
 
+final String config_template = File('data/default.conf').readAsStringSync();
+final File config_out = File('default.conf').absolute;
+
 final RegExp article_id = RegExp(r'^[0-9]+$');
 
 final List<Map<String, Function>> modules = [highlight.module];

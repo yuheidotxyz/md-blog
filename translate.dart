@@ -323,11 +323,20 @@ Future<void> main() async {
   }
 
   HtmlDir site_map = HtmlDir('');
+  String id_redirect = '';
   await for (FileSystemEntity entity in settings.articles.list()) {
     if (entity is Directory) {
-      site_map.add_file(HtmlFile(p.basename(entity.path)));
+      HtmlFile file = HtmlFile(p.basename(entity.path));
+      site_map.add_file(file);
+      id_redirect += '\n';
+      id_redirect += '''
+        if (\$uri ~ ${RegExp.escape('/${p.basename(file.path)}')}\$) {
+          return 301 /${file.path};
+        }''';
     }
   }
 
   put_html(site_map);
+  (await settings.config_out.create(recursive: true)).writeAsString(
+      replace_template(settings.config_template, {'id_redirect': id_redirect}));
 }
